@@ -2,14 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace BruckerRodolphe
+public class ToolInstanceTransform : MonoBehaviour
 {
-    public class ToolInstanceTransform : MonoBehaviour
-    {
-        //==================================================================
-        //Automatic methods
-        //==================================================================
+    //==================================================================
+    //Automatic methods
+    //==================================================================
 
-        void Start() => this.gameObject.SetActive(false);
-    }
+    void Start() => this.gameObject.SetActive(false);
 }
