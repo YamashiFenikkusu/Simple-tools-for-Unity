@@ -1,5 +1,5 @@
 <h1>SIMPLE TOOLS FOR UNITY</h1>
-This repository contain few simple tools to add in an Unity project. For the moment, just one is present: a procedural decors instancer, I'll add more scripts later.</br>
+This repository contain few simple tools to add in an Unity project. For the moment, just two are present: a procedural decors instancer and a audio listener to texture converter. I'll add more scripts later.</br>
 
 <centre>____________________________________</centre>
 <h2>Procedural Decor Assets</h2>
