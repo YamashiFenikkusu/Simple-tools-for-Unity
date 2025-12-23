@@ -25,7 +25,6 @@ public class ProceduralDecorAssets : EditorWindow
     private const int TRANSFORMTOPLACECOUNTDELFAULT = 10;
     private int maxAttempts = 30;
     private const int MAXATTEMPSDELFAULT = 30;
-    private const int LAYERDECOR = 12;
     //Float
     private float seed = 2;
     private const float SEEDDELFAULT = 2;
@@ -33,17 +32,20 @@ public class ProceduralDecorAssets : EditorWindow
     private const float SEEDDEVIDEDEFAULT = 2;
     //String
     [SerializeField] private string transformToPlacePrefab = "Assets/Editor/ProceduralDecorsAssets/TransformToPlace.prefab";
-    private const string TAGTOFIND = "Finish";
     private string groupName = "Default";
     private string rapport;
     //Vector
     private Vector2 scroll;
     [SerializeField] private Vector2 rotationVariation = new Vector2(0, 0);
-    [SerializeField] private Vector2 sizeVariation = new Vector2(1, 1);
+    [SerializeField] private Vector2 sizeVariation = new Vector2(1, 2);
+    private Vector3[] positionsLine;
     //GameObject
     private GameObject group;
     private List<GameObject> prefabs = new List<GameObject>();
-    private List<GameObject> transforms = new List<GameObject>();
+    //Line Renderer
+    private LineRenderer line;
+    //Script
+    private TransformToPlace[] transformToPlace;
 
     //==================================================================
     //Methods
@@ -55,13 +57,10 @@ public class ProceduralDecorAssets : EditorWindow
     /// <returns>Founded transforms to place.</returns>
     int FindTransforms()
     {
-        transforms.Clear();
-        foreach (GameObject _transforms in GameObject.FindGameObjectsWithTag(TAGTOFIND))
-        {
-            transforms.Add(_transforms);
-        }
-        rapport = transforms.Count.ToString() + " transform(s) finded.";
-        return transforms.Count;
+        transformToPlace = new TransformToPlace[0];
+        transformToPlace = FindObjectsByType<TransformToPlace>(FindObjectsSortMode.None);
+        rapport = transformToPlace.Length.ToString() + " transform(s) finded.";
+        return transformToPlace.Length;
     }
 
     /// <summary>
@@ -77,10 +76,7 @@ public class ProceduralDecorAssets : EditorWindow
         }
         SceneView _vue = SceneView.lastActiveSceneView;
         _transformToPlace.transform.position = _vue ? _vue.pivot : Vector3.zero;
-        StageUtility.PlaceGameObjectInCurrentStage(_transformToPlace);
-        GameObjectUtility.EnsureUniqueNameForSibling(_transformToPlace);
-        Selection.activeGameObject = _transformToPlace;
-        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        InstantationObject(_transformToPlace);
     }
 
     /// <summary>
@@ -107,10 +103,46 @@ public class ProceduralDecorAssets : EditorWindow
                 DestroyImmediate(_transformToPlace);
                 return;
             }
-            StageUtility.PlaceGameObjectInCurrentStage(_transformToPlace);
-            GameObjectUtility.EnsureUniqueNameForSibling(_transformToPlace);
-            Selection.activeGameObject = _transformToPlace;
-            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            InstantationObject(_transformToPlace);
+        }
+    }
+
+    /// <summary>
+    /// Instantiate object.
+    /// </summary>
+    /// <param name="gameObjectToInstance">Game object to instantiate.</param>
+    void InstantationObject(GameObject gameObjectToInstance)
+    {
+        StageUtility.PlaceGameObjectInCurrentStage(gameObjectToInstance);
+        GameObjectUtility.EnsureUniqueNameForSibling(gameObjectToInstance);
+        Selection.activeGameObject = gameObjectToInstance;
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+    }
+
+    /// <summary>
+    /// Place transform to place by a Line Renderer.
+    /// </summary>
+    void AddTransformByLine()
+    {
+        if (line == null) rapport = "Line renderer field is null.";
+        else
+        {
+            positionsLine = new Vector3[line.positionCount];
+            line.GetPositions(positionsLine);
+            for (int i = 0; i < positionsLine.Length; i++)
+            {
+                GameObject _transformToPlace = PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(transformToPlacePrefab)) as GameObject;
+                if (_transformToPlace == null)
+                {
+                    rapport = "Failed to load Transform to Place prefab.";
+                    return;
+                }
+                _transformToPlace.transform.position = positionsLine[i];
+                StageUtility.PlaceGameObjectInCurrentStage(_transformToPlace);
+                GameObjectUtility.EnsureUniqueNameForSibling(_transformToPlace);
+                Selection.activeGameObject = _transformToPlace;
+                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            }
         }
     }
 
@@ -173,11 +205,12 @@ public class ProceduralDecorAssets : EditorWindow
     /// </summary>
     void DeleteTransforms()
     {
-        foreach (GameObject _transforms in GameObject.FindGameObjectsWithTag(TAGTOFIND))
+        FindTransforms();
+        for (int _i = 0; _i < transformToPlace.Length; _i++)
         {
-            DestroyImmediate(_transforms);
+            DestroyImmediate(transformToPlace[_i].gameObject);
         }
-        transforms.Clear();
+        transformToPlace = new TransformToPlace[0];
         rapport = "All transforms are deleted.";
     }
 
@@ -188,7 +221,7 @@ public class ProceduralDecorAssets : EditorWindow
     bool ErrorDetected()
     {
         FindTransforms();
-        if (transforms.Count == 0)
+        if (transformToPlace.Length == 0)
         {
             rapport = "Transforms not founded.";
             return true;
@@ -218,8 +251,8 @@ public class ProceduralDecorAssets : EditorWindow
     /// </summary>
     void ResetAll()
     {
-        DeleteTransforms();
         prefabs.Clear();
+        line = null;
         transformToPlaceCount = TRANSFORMTOPLACECOUNTDELFAULT;
         enableRotateVariation = false;
         enableSizeVariation = false;
@@ -252,21 +285,22 @@ public class ProceduralDecorAssets : EditorWindow
             int _transformFinded = FindTransforms();
             for (int _i = 0; _i < _transformFinded; _i++)
             {
-                int _randomPrefab = UnityEngine.Random.Range(0, prefabs.Count);
-                GameObject _preparationPrefab = Instantiate(prefabs[_randomPrefab], transforms[_i].transform.position, Quaternion.identity);
+                int _randomPrefab = Random.Range(0, prefabs.Count);
+                GameObject _preparationPrefab = PrefabUtility.InstantiatePrefab(prefabs[_randomPrefab]) as GameObject;
+                _preparationPrefab.transform.position = transformToPlace[_i].transform.position;
+                _preparationPrefab.name += _i;
                 if (enableRotateVariation == true)
                 {
-                    float _temporaryRotate = UnityEngine.Random.Range(rotationVariation.x, rotationVariation.y);
+                    float _temporaryRotate = Random.Range(rotationVariation.x, rotationVariation.y);
                     _preparationPrefab.transform.Rotate(0, _temporaryRotate, 0, 0);
                 }
                 if (enableSizeVariation == true)
                 {
-                    float _tempoarySize = UnityEngine.Random.Range(sizeVariation.x, sizeVariation.y);
+                    float _tempoarySize = Random.Range(sizeVariation.x, sizeVariation.y);
                     _preparationPrefab.transform.localScale = new Vector3(_tempoarySize, _tempoarySize, _tempoarySize);
                 }
-                _preparationPrefab.layer = LAYERDECOR;
                 if (groupeInstantiatedObject) _preparationPrefab.transform.parent = group.transform;
-                rapport += ("\r\nPrefab " + _randomPrefab.ToString() + " placed in " + transforms[_i].transform.position.ToString() + ".");
+                rapport += ("\r\nPrefab " + _randomPrefab.ToString() + " placed in " + transformToPlace[_i].transform.position.ToString() + ".");
             }
         }
         if (destroyTransformToPlace) DeleteTransforms();
@@ -409,6 +443,8 @@ public class ProceduralDecorAssets : EditorWindow
         GUILayout.Label("Transform to place", EditorStyles.boldLabel);
         if (GUILayout.Button("Find transforms to place")) FindTransforms();
         if (GUILayout.Button("Place individual manualy transform to place")) AddTransformManual();
+        line = (LineRenderer)EditorGUILayout.ObjectField("Line renderer to place: ", line, typeof(LineRenderer), true);
+        if (GUILayout.Button("Place transform to place by Line Renderer")) AddTransformByLine();
         if (GUILayout.Button("Place transform to place by Nav Mesh")) AddTransformByNavMesh();
         if (GUILayout.Button("Delete all transforms to place")) DeleteTransforms();
         //Instance
